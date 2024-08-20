@@ -183,6 +183,7 @@
                     if (wrongAttempts >= getLevelConfig().maxWrongAttempts) {
                         gamePaused = true;
                         document.getElementById('restart-game').classList.remove('hidden');
+                        document.querySelectorAll('.card:not(.matched)').forEach(card => card.removeEventListener('click', flipCard));
                     }
                     setTimeout(() => {
                         firstCard.classList.remove('flipped');
@@ -224,9 +225,9 @@
             createBoard();
         });
 
-        document.getElementById('restart-game').addEventListener('click', createBoard);
-
-        document.getElementById('clue-button').addEventListener('click', useClue);
+        document.getElementById('restart-game').addEventListener('click', () => {
+            createBoard();
+        });
 
         createBoard();
     </script>
