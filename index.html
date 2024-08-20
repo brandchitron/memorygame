@@ -7,232 +7,243 @@
     <style>
         body {
             display: flex;
-            flex-direction: column;
-            align-items: center;
             justify-content: center;
+            align-items: center;
             height: 100vh;
             margin: 0;
             background-color: #f0f0f0;
-            font-family: 'Comic Sans MS', cursive, sans-serif;
+            font-family: Arial, sans-serif;
+            flex-direction: column;
         }
+
         #game-container {
             display: grid;
+            grid-template-columns: repeat(3, 100px);
             gap: 10px;
-            margin-top: 20px;
         }
+
         .card {
-            width: 80px;
-            height: 80px;
-            background-color: #000;
+            width: 100px;
+            height: 100px;
+            background-color: #333;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 36px;
-            color: transparent;
+            font-size: 24px;
+            color: white;
             cursor: pointer;
-            transition: transform 0.3s, box-shadow 0.3s;
-            box-shadow: 5px 5px 15px #00000070, -5px -5px 15px #ffffff70;
-            border-radius: 10px;
+            user-select: none;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
         }
-        .card.flipped, .card.matched {
+
+        .card.flipped {
             background-color: #fff;
             color: #333;
-            transform: rotateY(180deg);
         }
+
         .card.matched {
             background-color: #00ff00;
-            animation: pulse 1s infinite;
+            color: white;
+            cursor: default;
         }
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-        .button {
-            padding: 10px 20px;
-            font-size: 16px;
-            border-radius: 8px;
-            color: #fff;
-            background: linear-gradient(145deg, #6a11cb, #2575fc);
-            box-shadow: 5px 5px 15px #00000070, -5px -5px 15px #ffffff70;
-            cursor: pointer;
-            margin-top: 10px;
-            transition: transform 0.3s;
-        }
-        .button:hover { transform: scale(1.05); }
-        .hidden { display: none; }
-        #level-info {
-            font-size: 24px; /* Increased text size for level indicator */
-        }
-        #progress-bar-container {
-            width: 100%;
-            max-width: 400px;
+
+        #controls {
             margin-top: 20px;
-            position: fixed;
-            bottom: 10px;
             text-align: center;
         }
-        #progress-bar {
-            width: 0%;
-            height: 20px;
-            background-color: #4caf50;
-            border-radius: 10px;
-            transition: width 0.3s;
+
+        #level-indicator {
+            font-size: 24px;
+            margin-bottom: 10px;
         }
-        #wrong-attempts {
-            font-size: 18px;
+
+        #progress-container {
+            width: 300px;
+            background-color: #ddd;
+            border-radius: 5px;
+            overflow: hidden;
             margin-top: 10px;
         }
-        @media (max-width: 600px) {
-            .card { width: 60px; height: 60px; font-size: 24px; }
-            #level-info { font-size: 20px; }
+
+        #progress-bar {
+            height: 10px;
+            width: 0;
+            background-color: #76c7c0;
+        }
+
+        .button {
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .button:active {
+            box-shadow: none;
+        }
+
+        .hidden {
+            display: none;
         }
     </style>
 </head>
 <body>
-    <div id="level-info">Level: 1</div>
+    <div id="level-indicator">Level: 1</div>
     <div id="game-container"></div>
-    <button id="clue-button" class="button">Clue</button>
-    <button id="next-level" class="button hidden">Next Level</button>
-    <button id="restart-game" class="button hidden">Restart Game</button>
-    <div id="wrong-attempts">Wrong Attempts: 0</div>
-    <div id="progress-bar-container">
-        <div id="progress-bar"></div>
+    <div id="controls">
+        <button id="clue-button" class="button">Clue</button>
+        <div id="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+        <div id="wrong-attempts">Wrong Attempts: 0</div>
+        <button id="next-level" class="button hidden">Next Level</button>
+        <button id="restart-game" class="button hidden">Restart Game</button>
     </div>
 
     <script>
-        const baseSymbols = ['🍎', '🍌', '🍇', '🍉', '🍓', '🍒', '🍑', '🍍', '🍋', '🍊'];
-        let level = 1, matchedCards = 0, clueUsed = false, firstCard = null, secondCard = null, wrongAttempts = 0;
-        let gamePaused = false; // Flag to track if the game is paused due to wrong attempts
+        const symbols = ['🍎', '🍌', '🍇', '🍉', '🍓', '🍒', '🍑', '🍍'];
+        let cards = [];
+        let flippedCards = [];
+        let matchedCards = 0;
+        let wrongAttempts = 0;
+        let maxWrongAttempts = 3;
+        let level = 1;
 
-        const levelConfigs = [
-            { rows: 3, cols: 3, maxWrongAttempts: 3 },
-            { rows: 3, cols: 4, maxWrongAttempts: 4 },
-            { rows: 4, cols: 4, maxWrongAttempts: 4 },
-            { rows: 4, cols: 5, maxWrongAttempts: 5 }
-        ];
-
-        function createBoard() {
-            const gameContainer = document.getElementById('game-container');
-            const { rows, cols } = getLevelConfig();
-            gameContainer.style.gridTemplateColumns = `repeat(${cols}, 80px)`;
-            const symbols = baseSymbols.slice(0, (rows * cols) / 2);
-            const cards = shuffle([...symbols, ...symbols]);
-            gameContainer.innerHTML = cards.map(symbol => 
-                `<div class="card" data-symbol="${symbol}" onclick="flipCard(this)"><span class="emoji">${symbol}</span></div>`
-            ).join('');
-            clueUsed = false;
-            matchedCards = 0;
-            firstCard = null;
-            secondCard = null;
-            wrongAttempts = 0;
-            gamePaused = false;
-            document.getElementById('clue-button').classList.remove('hidden');
-            document.getElementById('next-level').classList.add('hidden');
-            document.getElementById('restart-game').classList.add('hidden');
-            updateLevelInfo();
-            updateProgressBar();
-            updateWrongAttempts();
-        }
-
-        function getLevelConfig() {
-            if (level <= 10) return levelConfigs[0];
-            if (level <= 15) return levelConfigs[1];
-            if (level <= 19) return levelConfigs[2];
-            return levelConfigs[3];
-        }
-
-        function updateLevelInfo() {
-            document.getElementById('level-info').textContent = `Level: ${level}`;
-        }
-
-        function updateProgressBar() {
-            const { rows, cols } = getLevelConfig();
-            const totalCards = rows * cols;
-            const progress = (matchedCards / totalCards) * 100;
-            document.getElementById('progress-bar').style.width = `${progress}%`;
-        }
-
-        function updateWrongAttempts() {
-            document.getElementById('wrong-attempts').textContent = `Wrong Attempts: ${wrongAttempts}`;
-        }
-
-        function flipCard(card) {
-            if (gamePaused || card.classList.contains('flipped') || card.classList.contains('matched') || secondCard) {
-                return;
-            }
-
-            card.classList.add('flipped');
-            card.style.color = '#333';
-
-            if (!firstCard) {
-                firstCard = card;
-            } else {
-                secondCard = card;
-                if (firstCard.dataset.symbol === secondCard.dataset.symbol) {
-                    matchedCards += 2;
-                    firstCard.classList.add('matched');
-                    secondCard.classList.add('matched');
-                    firstCard = null;
-                    secondCard = null;
-                    wrongAttempts = 0; // Reset wrong attempts after a successful match
-                    updateProgressBar();
-                    if (matchedCards === getLevelConfig().rows * getLevelConfig().cols) {
-                        document.getElementById('next-level').classList.remove('hidden');
-                    }
-                } else {
-                    wrongAttempts++;
-                    updateWrongAttempts();
-                    if (wrongAttempts >= getLevelConfig().maxWrongAttempts) {
-                        gamePaused = true;
-                        document.getElementById('restart-game').classList.remove('hidden');
-                        document.querySelectorAll('.card:not(.matched)').forEach(card => card.removeEventListener('click', flipCard));
-                    }
-                    setTimeout(() => {
-                        firstCard.classList.remove('flipped');
-                        firstCard.style.color = 'transparent';
-                        secondCard.classList.remove('flipped');
-                        secondCard.style.color = 'transparent';
-                        firstCard = null;
-                        secondCard = null;
-                    }, 1000);
-                }
-            }
-        }
-
-        function useClue() {
-            if (clueUsed || gamePaused) return;
-            clueUsed = true;
-            const unmatched = Array.from(document.querySelectorAll('.card:not(.matched):not(.flipped)'));
-            if (unmatched.length > 1) {
-                const [card1, card2] = shuffle(unmatched).slice(0, 2);
-                if (card1.dataset.symbol === card2.dataset.symbol) {
-                    card1.classList.add('flipped', 'matched');
-                    card2.classList.add('flipped', 'matched');
-                    matchedCards += 2;
-                    updateProgressBar();
-                    if (matchedCards === getLevelConfig().rows * getLevelConfig().cols) {
-                        document.getElementById('next-level').classList.remove('hidden');
-                    }
-                }
-            }
-            document.getElementById('clue-button').classList.add('hidden');
-        }
+        const gameContainer = document.getElementById('game-container');
+        const progressBar = document.getElementById('progress-bar');
+        const levelIndicator = document.getElementById('level-indicator');
+        const nextLevelButton = document.getElementById('next-level');
+        const restartGameButton = document.getElementById('restart-game');
+        const clueButton = document.getElementById('clue-button');
+        const wrongAttemptsDisplay = document.getElementById('wrong-attempts');
 
         function shuffle(array) {
             return array.sort(() => 0.5 - Math.random());
         }
 
-        document.getElementById('next-level').addEventListener('click', () => {
+        function createBoard() {
+            gameContainer.innerHTML = '';
+            cards = shuffle([...symbols.slice(0, level * 2), ...symbols.slice(0, level * 2)]);
+            gameContainer.style.gridTemplateColumns = `repeat(${Math.ceil(cards.length / 3)}, 100px)`;
+            matchedCards = 0;
+            flippedCards = [];
+            wrongAttempts = 0;
+            maxWrongAttempts = 2 + level; // Increase wrong attempt limit per level
+            updateProgressBar();
+            updateWrongAttempts();
+
+            cards.forEach(symbol => {
+                const card = document.createElement('div');
+                card.classList.add('card');
+                card.dataset.symbol = symbol;
+                card.addEventListener('click', flipCard);
+                gameContainer.appendChild(card);
+            });
+
+            clueButton.classList.remove('hidden');
+            nextLevelButton.classList.add('hidden');
+            restartGameButton.classList.add('hidden');
+        }
+
+        function flipCard() {
+            if (flippedCards.length < 2 && !this.classList.contains('flipped')) {
+                this.classList.add('flipped');
+                this.textContent = this.dataset.symbol;
+                flippedCards.push(this);
+
+                if (flippedCards.length === 2) {
+                    setTimeout(checkForMatch, 1000);
+                }
+            }
+        }
+
+        function checkForMatch() {
+            const [card1, card2] = flippedCards;
+
+            if (card1.dataset.symbol === card2.dataset.symbol) {
+                card1.classList.add('matched');
+                card2.classList.add('matched');
+                matchedCards += 2;
+
+                updateProgressBar();
+
+                if (matchedCards === cards.length) {
+                    progressBar.style.width = '100%';
+                    setTimeout(() => {
+                        nextLevelButton.classList.remove('hidden');
+                    }, 500);
+                }
+            } else {
+                card1.classList.remove('flipped');
+                card2.classList.remove('flipped');
+                card1.textContent = '';
+                card2.textContent = '';
+                wrongAttempts++;
+                updateWrongAttempts();
+            }
+
+            flippedCards = [];
+            if (wrongAttempts >= maxWrongAttempts) {
+                setTimeout(() => {
+                    restartGameButton.classList.remove('hidden');
+                }, 500);
+            }
+        }
+
+        function updateProgressBar() {
+            const progress = (matchedCards / cards.length) * 100;
+            progressBar.style.width = `${progress}%`;
+        }
+
+        function updateWrongAttempts() {
+            wrongAttemptsDisplay.textContent = `Wrong Attempts: ${wrongAttempts}`;
+        }
+
+        function useClue() {
+            if (clueButton.classList.contains('hidden')) return;
+
+            let unmatchedCards = Array.from(document.querySelectorAll('.card:not(.matched)'));
+            if (unmatchedCards.length >= 2) {
+                const randomCard1 = unmatchedCards[Math.floor(Math.random() * unmatchedCards.length)];
+                let randomCard2 = unmatchedCards.find(card => card.dataset.symbol === randomCard1.dataset.symbol && card !== randomCard1);
+
+                if (randomCard2) {
+                    randomCard1.classList.add('flipped', 'matched');
+                    randomCard1.textContent = randomCard1.dataset.symbol;
+                    randomCard2.classList.add('flipped', 'matched');
+                    randomCard2.textContent = randomCard2.dataset.symbol;
+                    matchedCards += 2;
+                    updateProgressBar();
+
+                    if (matchedCards === cards.length) {
+                        progressBar.style.width = '100%';
+                        setTimeout(() => {
+                            nextLevelButton.classList.remove('hidden');
+                        }, 500);
+                    }
+                }
+            }
+
+            clueButton.classList.add('hidden');
+        }
+
+        nextLevelButton.addEventListener('click', () => {
             level++;
             if (level > 4) level = 1; // Reset level if it exceeds the max level
+            levelIndicator.textContent = `Level: ${level}`;
             createBoard();
         });
 
-        document.getElementById('restart-game').addEventListener('click', () => {
+        restartGameButton.addEventListener('click', () => {
             createBoard();
         });
 
-        document.getElementById('clue-button').addEventListener('click', useClue);
+        clueButton.addEventListener('click', useClue);
 
         createBoard();
     </script>
