@@ -224,11 +224,11 @@
 
         document.getElementById('next-level').addEventListener('click', () => {
             level++;
+            if (level > 4) level = 1; // Reset level if it exceeds the max level
             createBoard();
         });
 
         document.getElementById('restart-game').addEventListener('click', () => {
-            level = 1;
             createBoard();
         });
 
