@@ -117,7 +117,9 @@
             gameContainer.style.gridTemplateColumns = `repeat(${cols}, 80px)`;
             const symbols = baseSymbols.slice(0, (rows * cols) / 2);
             const cards = shuffle([...symbols, ...symbols]);
-            gameContainer.innerHTML = cards.map(symbol => `<div class="card" data-symbol="${symbol}" onclick="flipCard(this)"><span class="emoji">${symbol}</span></div>`).join('');
+            gameContainer.innerHTML = cards.map(symbol => 
+                `<div class="card" data-symbol="${symbol}" onclick="flipCard(this)"><span class="emoji">${symbol}</span></div>`
+            ).join('');
             clueUsed = false;
             matchedCards = 0;
             firstCard = null;
@@ -230,7 +232,9 @@
             createBoard();
         });
 
-        createBoard(); // Initialize the game
+        document.getElementById('clue-button').addEventListener('click', useClue);
+
+        createBoard();
     </script>
 </body>
 </html>
