@@ -226,10 +226,11 @@
         });
 
         document.getElementById('restart-game').addEventListener('click', () => {
+            level = 1;
             createBoard();
         });
 
-        createBoard();
+        createBoard(); // Initialize the game
     </script>
 </body>
 </html>
